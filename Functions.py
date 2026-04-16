@@ -142,6 +142,7 @@ def list_credentials(vault: dict) -> list:
 
 if __name__ == "__main__":
     # Example usage
+    """
     master_password = "SuperSecurePassphrase123!"
     vault_file = "passwords.vault"
     
@@ -214,3 +215,4 @@ if __name__ == "__main__":
     print("\n" + "=" * 60)
     print("✓ All operations completed successfully!")
     print("=" * 60)
+    """

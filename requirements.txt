@@ -1,0 +1,4 @@
+argon2-cffi>=23.1.0
+cryptography>=42.0.0
+textual>=0.84.0
+pyinstaller>=6.10.0

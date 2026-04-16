@@ -1,183 +1,146 @@
 # Password Manager
 
-A secure, encrypted password vault implementation using industry-standard cryptographic algorithms.
+Terminal-based password manager with encrypted vault storage.
 
-## Overview
+It uses a master passphrase to derive an encryption key at runtime. The passphrase is not written to disk.
 
-This password manager encrypts passwords using a master passphrase. The key is derived from your passphrase each time, meaning passwords cannot be decrypted without the correct passphrase. The encryption key is never stored on disk.
+## Features
 
-## How It Works
+- Encrypted vault with per-entry password encryption.
+- Add, update, remove, and reveal credentials from a Textual UI.
+- Keyboard shortcuts for fast navigation.
+- Standalone executable builds for shipping to users.
 
-### Security Architecture
+## Security Model
 
-The system uses two cryptographic components:
+This project uses:
 
-1. **Argon2** - A memory-hard key derivation function that converts your master passphrase into a cryptographic key
-   - Resistant to brute-force attacks due to high memory and computational requirements
-   - Time cost: 3 iterations
-   - Memory cost: 65536 KB (~64 MB)
-   - Parallelism: 2 threads
-   - Output: 32-byte key for AES-256
+- Argon2id-style key derivation (via `argon2-cffi`) to derive a 32-byte key from your passphrase.
+- AES-GCM authenticated encryption (via `cryptography`) for credential password fields.
+- Random per-vault salt and random nonce per encrypted password.
 
-2. **AES-GCM** - Authenticated encryption algorithm
-   - Provides both confidentiality (encryption) and authenticity (integrity checking)
-   - 12-byte random nonce generated for each encryption
-   - Fails with incorrect passphrase (authentication tag won't match)
+What is stored:
 
-### Data Flow
+- `passwords.vault` stores metadata and encrypted credential payloads.
+- The passphrase itself is not stored in the vault file.
 
-**Saving:**
-```
-Master Passphrase + Random Salt
-         ↓
-    [Argon2 Hashing]
-         ↓
-    Encryption Key (32 bytes)
-         ↓
-    [AES-GCM Encryption with Random Nonce]
-         ↓
-Password Dictionary → JSON → Encrypted Ciphertext
-         ↓
-Vault File: [Salt (16 bytes)][Nonce (12 bytes)][Ciphertext]
-```
+What is not stored:
 
-**Loading:**
-```
-Vault File: [Salt][Nonce][Ciphertext]
-         ↓
-Extract: salt, nonce, ciphertext
-         ↓
-Master Passphrase + Extracted Salt
-         ↓
-    [Argon2 Hashing]
-         ↓
-    Same Encryption Key
-         ↓
-    [AES-GCM Decryption & Authentication]
-         ↓
-Plaintext JSON → Password Dictionary
-(Fails if passphrase is wrong)
-```
+- The passphrase is entered during sensitive actions and used in memory.
+- No "remember passphrase" behavior is implemented.
 
-## Installation
+## Project Structure
 
-Install required dependencies:
+- `main.py`: Textual app (UI, flows, actions, key bindings).
+- `Functions.py`: crypto and vault operations.
+- `passwords.vault`: local vault file (ignored by git).
+- `build_release.sh`: one-command build for standalone executable.
+- `requirements.txt`: Python dependencies.
+
+## Requirements
+
+- Python 3.10+
+- Linux, macOS, or Windows
+
+## Local Development Setup
 
 ```bash
-pip install argon2-cffi cryptography
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 ```
 
-## Usage
-
-### Basic Example
-
-```python
-from Test import save_vault, load_vault
-
-# Define your passwords
-passwords = {
-    "gmail": "mypassword123",
-    "github": "github_token_abc",
-    "bank": "secure_pin_456"
-}
-
-# Save vault with master passphrase
-save_vault("MyMasterPassword", passwords, "vault.bin")
-
-# Load vault (need correct passphrase)
-loaded = load_vault("MyMasterPassword", "vault.bin")
-print(loaded)  # {"gmail": "...", "github": "...", "bank": "..."}
-```
-
-### Handling Wrong Passphrase
-
-```python
-try:
-    data = load_vault("WrongPassword", "vault.bin")
-except Exception as e:
-    print(f"Access denied: {type(e).__name__}")
-    # AES-GCM authentication fails with wrong passphrase
-```
-
-### Updating Passwords
-
-```python
-# Load existing vault
-passwords = load_vault("MyMasterPassword", "vault.bin")
-
-# Add or modify passwords
-passwords["twitter"] = "new_twitter_password"
-passwords["gmail"] = "updated_password"
-
-# Save updated vault
-save_vault("MyMasterPassword", passwords, "vault.bin")
-```
-
-## Security Features
-
-- ✅ **Random Salt** - Each vault gets a unique salt, preventing rainbow table attacks
-- ✅ **Random Nonce** - Each encryption uses a fresh nonce, required for AES-GCM security
-- ✅ **Authentication** - AES-GCM detects tampering or corruption
-- ✅ **Memory-Hard Hashing** - Argon2 resists GPU-accelerated attacks
-- ✅ **No Key Storage** - Encryption key is derived from passphrase, never stored
-
-## API Reference
-
-### `derive_key(passphrase: str, salt: bytes) -> bytes`
-Derives a 32-byte encryption key from a passphrase using Argon2.
-
-**Parameters:**
-- `passphrase`: Master password (string)
-- `salt`: Random bytes for key derivation (16 bytes)
-
-**Returns:** 32-byte encryption key
-
-### `save_vault(passphrase: str, data: dict, path: str)`
-Encrypts and saves password data to a file.
-
-**Parameters:**
-- `passphrase`: Master password (string)
-- `data`: Dictionary of passwords (e.g., `{"service": "password"}`)
-- `path`: File path to save vault (string)
-
-**Returns:** None (writes binary file)
-
-### `load_vault(passphrase: str, path: str) -> dict`
-Decrypts and loads password data from a vault file.
-
-**Parameters:**
-- `passphrase`: Master password (string)
-- `path`: File path of vault (string)
-
-**Returns:** Dictionary of passwords
-
-**Raises:**
-- `InvalidTag` - If passphrase is incorrect
-- `FileNotFoundError` - If vault file doesn't exist
-- `JSONDecodeError` - If vault data is corrupted
-
-## File Format
-
-Vault files are binary with the following structure:
-
-```
-Byte Position | Length | Content
-0-15          | 16     | Salt (used by Argon2)
-16-27         | 12     | Nonce (used by AES-GCM)
-28+           | var    | Ciphertext (encrypted JSON data)
-```
-
-## Running the Example
-
-The `Test.py` file includes a complete working example:
+## Run The App
 
 ```bash
-python3 Test.py
+python3 main.py
 ```
 
-This demonstrates:
-1. Creating and saving a vault
-2. Loading with correct passphrase
-3. Handling authentication failure
-4. Updating and re-encrypting the vault
-5. Verifying changes
+On first use:
+
+1. Choose **Add**.
+2. Enter service, username, password.
+3. If no vault exists yet, set a new master passphrase.
+
+For existing vaults:
+
+- Add/Remove/Reveal actions prompt for the passphrase.
+
+## Keyboard Shortcuts
+
+- `a`: Add credential
+- `delete`: Remove selected credential
+- `p`: Reveal selected password
+- `r`: Refresh vault view
+- `q`: Quit
+
+## Standalone Shipping (No Python Required For End User)
+
+Build a single-file executable with PyInstaller:
+
+```bash
+bash build_release.sh
+```
+
+Build output:
+
+- Linux: `dist/password-manager`
+- macOS: `dist/password-manager`
+- Windows: `dist/password-manager.exe`
+
+Distribution notes:
+
+- Build on each target OS/architecture you want to support.
+- Do not expect a Linux build to run on Windows/macOS.
+- Ship only the executable; do not bundle personal vault data.
+
+## Multi-Device Usage
+
+If you want one vault across multiple devices:
+
+1. Keep `passwords.vault` in a synced folder (for example: Dropbox, OneDrive, iCloud Drive, Syncthing).
+2. Run the app on each device.
+3. Use the same passphrase everywhere.
+
+Recommended:
+
+- Ensure only one device writes to the vault at a time to avoid sync conflicts.
+
+## Timezone Notes
+
+The header clock follows the runtime environment timezone.
+
+To force UTC+2 for a session on Linux/macOS:
+
+```bash
+TZ=Etc/GMT-2 python3 main.py
+```
+
+If using a shipped executable:
+
+```bash
+TZ=Etc/GMT-2 ./dist/password-manager
+```
+
+## Troubleshooting
+
+### "Incorrect passphrase or unreadable vault"
+
+- Verify you entered the correct passphrase.
+- Confirm `passwords.vault` is valid JSON and not corrupted by sync conflicts.
+
+### Build command fails
+
+- Activate your virtual environment.
+- Reinstall dependencies: `pip install -r requirements.txt`.
+- Check your Python version (`python3 --version`).
+
+### App runs but no credentials appear
+
+- Confirm you are opening the expected `passwords.vault` file in the current working directory.
+
+## Development Notes
+
+- Keep `passwords.vault` out of source control.
+- Keep passphrase handling ephemeral and in memory.
+- Review cryptography dependency updates regularly.
