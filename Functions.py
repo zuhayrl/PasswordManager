@@ -1,5 +1,4 @@
 # Password Manager - Secure Vault Implementation
-# See README.md for detailed documentation and usage examples
 
 from argon2.low_level import hash_secret_raw, Type  # Argon2 for key derivation
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM  # AES-GCM for encryption
@@ -9,7 +8,7 @@ import os, json, base64  # os for random bytes, json for serialization, base64 f
 SALT_SIZE = 16      # 16 bytes of random salt for Argon2
 NONCE_SIZE = 12     # 12 bytes of random nonce for AES-GCM
 
-
+# Derive Key
 def derive_key(passphrase: str, salt: bytes) -> bytes:
     # Convert passphrase into a 32-byte encryption key using Argon2
     # Argon2 is memory-hard: resists brute-force and GPU attacks
@@ -24,7 +23,7 @@ def derive_key(passphrase: str, salt: bytes) -> bytes:
         type=Type.I
     )
 
-
+# Encrypt Password
 def encrypt_password(password: str, key: bytes) -> tuple:
     # Encrypt a single password with AES-GCM, return (nonce, ciphertext) as base64 strings
     nonce = os.urandom(NONCE_SIZE)  # Fresh nonce for each password
@@ -32,7 +31,7 @@ def encrypt_password(password: str, key: bytes) -> tuple:
     # Return base64-encoded strings for JSON storage
     return base64.b64encode(nonce).decode(), base64.b64encode(ciphertext).decode()
 
-
+# Decrypt Password
 def decrypt_password(nonce_b64: str, ciphertext_b64: str, key: bytes) -> str:
     # Decrypt a single password using AES-GCM, takes base64-encoded strings
     nonce = base64.b64decode(nonce_b64)
@@ -40,7 +39,7 @@ def decrypt_password(nonce_b64: str, ciphertext_b64: str, key: bytes) -> str:
     plaintext = AESGCM(key).decrypt(nonce, ciphertext, None)
     return plaintext.decode()
 
-
+# Create Vault
 def create_vault(passphrase: str, path: str) -> None:
     # Create an empty vault file
     salt = os.urandom(SALT_SIZE)
@@ -51,7 +50,7 @@ def create_vault(passphrase: str, path: str) -> None:
     with open(path, "w") as f:
         json.dump(vault_data, f, indent=2)
 
-
+# Load Vault
 def load_vault(passphrase: str, path: str) -> dict:
     # Load vault structure and return the key + vault data for manipulation
     with open(path, "r") as f:
@@ -60,10 +59,22 @@ def load_vault(passphrase: str, path: str) -> dict:
     # Decode salt from base64 and derive the master key
     salt = base64.b64decode(vault_data["salt"])
     key = derive_key(passphrase, salt)
+
+    # Verify the passphrase against an existing entry when possible.
+    entries = vault_data.get("entries", [])
+    if entries:
+        first_entry = entries[0]
+        decrypt_password(first_entry["password_nonce"], first_entry["password_ciphertext"], key)
     
     return {"key": key, "data": vault_data}
 
+# Save Vault
+def save_vault(vault: dict, path: str) -> None:
+    # Save vault to file (encrypted passwords are already in the data)
+    with open(path, "w") as f:
+        json.dump(vault["data"], f, indent=2)
 
+# Add Credential
 def add_credential(vault: dict, service: str, username: str, password: str) -> None:
     # Add or update a credential in the vault (in memory)
     key = vault["key"]
@@ -92,7 +103,7 @@ def add_credential(vault: dict, service: str, username: str, password: str) -> N
             "password_ciphertext": ciphertext_b64
         })
 
-
+# Remove Credential
 def remove_credential(vault: dict, service: str) -> bool:
     # Remove a credential from the vault (in memory). Returns True if found and removed
     for i, entry in enumerate(vault["data"]["entries"]):
@@ -101,7 +112,7 @@ def remove_credential(vault: dict, service: str) -> bool:
             return True
     return False
 
-
+# Get Credential
 def get_credential(vault: dict, service: str) -> dict:
     # Get a decrypted credential from the vault
     key = vault["key"]
@@ -117,7 +128,7 @@ def get_credential(vault: dict, service: str) -> dict:
             }
     return None
 
-
+# List Credentials
 def list_credentials(vault: dict) -> list:
     # List all credentials (username + service, passwords not shown)
     return [
@@ -129,16 +140,10 @@ def list_credentials(vault: dict) -> list:
     ]
 
 
-def save_vault(vault: dict, path: str) -> None:
-    # Save vault to file (encrypted passwords are already in the data)
-    with open(path, "w") as f:
-        json.dump(vault["data"], f, indent=2)
-
-
 if __name__ == "__main__":
     # Example usage
     master_password = "SuperSecurePassphrase123!"
-    vault_file = "my_passwords.vault"
+    vault_file = "passwords.vault"
     
     print("=" * 60)
     print("PASSWORD MANAGER - EXAMPLE USAGE")
