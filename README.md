@@ -91,7 +91,7 @@ Distribution notes:
 
 - Build on each target OS/architecture you want to support.
 - Do not expect a Linux build to run on Windows/macOS.
-- Ship only the executable; do not bundle personal vault data.
+- Ships only the executable; does not bundle personal vault data.
 
 ## Multi-Device Usage
 
@@ -105,20 +105,6 @@ Recommended:
 
 - Ensure only one device writes to the vault at a time to avoid sync conflicts.
 
-## Timezone Notes
-
-The header clock follows the runtime environment timezone.
-
-To force UTC+2 for a session on Linux/macOS:
-
-```bash
-TZ=Etc/GMT-2 python3 main.py
-```
-
-If using a shipped executable:
-
-```bash
-TZ=Etc/GMT-2 ./dist/password-manager
 ```
 
 ## Troubleshooting
