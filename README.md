@@ -41,12 +41,11 @@ What is not stored:
 
 - Python 3.10+
 - Linux, macOS, or Windows
+- **Debian/Ubuntu only**: `python3-venv` (automatically installed by build script if missing)
 
 ## Local Development Setup
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
@@ -82,7 +81,7 @@ Build a single-file executable with PyInstaller:
 bash build_release.sh
 ```
 
-Build output:
+The build script automatically creates a temporary virtual environment, installs dependencies, builds the executable, and cleans up.
 
 - Linux: `dist/password-manager`
 - macOS: `dist/password-manager`
