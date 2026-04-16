@@ -105,8 +105,6 @@ Recommended:
 
 - Ensure only one device writes to the vault at a time to avoid sync conflicts.
 
-```
-
 ## Troubleshooting
 
 ### "Incorrect passphrase or unreadable vault"
