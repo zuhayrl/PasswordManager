@@ -140,6 +140,8 @@ class PasswordManagerApp(App):
 	Screen {
 		background: #08111f;
 		color: #e5eef9;
+		min-width: 96;
+		min-height: 28;
 	}
 
 	#root {
@@ -163,11 +165,13 @@ class PasswordManagerApp(App):
 	}
 
 	#left-pane {
-		width: 42%;
+		width: 44%;
+		min-width: 44;
 	}
 
 	#right-pane {
-		width: 58%;
+		width: 56%;
+		min-width: 40;
 	}
 
 	#credential-list {
@@ -194,8 +198,18 @@ class PasswordManagerApp(App):
 		margin-top: 1;
 	}
 
+	.toolbar-row {
+		height: auto;
+	}
+
 	.toolbar Button {
+		width: 1fr;
+		min-width: 10;
 		margin-right: 1;
+	}
+
+	.toolbar-row Button:last-child {
+		margin-right: 0;
 	}
 
 	#dialog-card {
@@ -243,11 +257,13 @@ class PasswordManagerApp(App):
 					yield Static("Stored Credentials", classes="panel-title")
 					yield Static("Click a credential to select it.", id="left-hint")
 					yield ListView(id="credential-list")
-					with Horizontal(classes="toolbar"):
-						yield Button("Add", id="add", variant="success")
-						yield Button("Remove", id="remove", variant="error")
-						yield Button("Reveal", id="reveal", variant="primary")
-						yield Button("Refresh", id="refresh", variant="default")
+					with Vertical(classes="toolbar"):
+						with Horizontal(classes="toolbar-row"):
+							yield Button("Add", id="add", variant="success")
+							yield Button("Remove", id="remove", variant="error")
+						with Horizontal(classes="toolbar-row"):
+							yield Button("Reveal", id="reveal", variant="primary")
+							yield Button("Refresh", id="refresh", variant="default")
 				with Vertical(id="right-pane"):
 					yield Static("Details", classes="panel-title")
 					yield Static("Select a credential to see its username.\nUse Reveal to enter the passphrase and show the password.", id="details")
