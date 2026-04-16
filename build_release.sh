@@ -5,20 +5,33 @@ APP_NAME="password-manager"
 ENTRYPOINT="main.py"
 VENV_DIR=".build_venv"
 
+# Detect OS and set Python command
+if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "cygwin" || "$OSTYPE" == "win32" ]]; then
+  PYTHON_CMD="python"
+else
+  PYTHON_CMD="python3"
+fi
+
 if [[ ! -f "$ENTRYPOINT" ]]; then
   echo "Error: $ENTRYPOINT was not found in $(pwd)"
   exit 1
 fi
 
 # Check if python3-venv is installed (Debian/Ubuntu requirement)
-if ! python3 -m venv --help &>/dev/null; then
-  echo "Installing python3-venv (required for build)..."
-  sudo apt-get update && sudo apt-get install -y python3-venv
+if ! $PYTHON_CMD -m venv --help &>/dev/null; then
+  # Only try to install on Debian/Ubuntu
+  if command -v apt-get &>/dev/null; then
+    echo "Installing python3-venv (required for build)..."
+    sudo apt-get update && sudo apt-get install -y python3-venv
+  else
+    echo "Error: venv module not available. Please install python3-venv or python-venv."
+    exit 1
+  fi
 fi
 
 # Create temporary venv for build
 echo "Creating temporary build environment..."
-python3 -m venv "$VENV_DIR"
+$PYTHON_CMD -m venv "$VENV_DIR"
 PYTHON_BIN="$VENV_DIR/bin/python"
 PIP_BIN="$VENV_DIR/bin/pip"
 
