@@ -10,3 +10,6 @@ passwords.vault
 build/
 dist/
 *.spec
+
+#dev container
+.devcontainer
