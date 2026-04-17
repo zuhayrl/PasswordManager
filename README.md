@@ -7,7 +7,7 @@ It uses a master passphrase to derive an encryption key at runtime. The passphra
 ## Features
 
 - Encrypted vault with per-entry password encryption.
-- Add, update, remove, and reveal credentials from a Textual UI.
+- Add, edit, remove, and reveal credentials from a Textual UI.
 - Keyboard shortcuts for fast navigation.
 - Standalone executable builds for shipping to users.
 
@@ -63,11 +63,12 @@ On first use:
 
 For existing vaults:
 
-- Add/Remove/Reveal actions prompt for the passphrase.
+- Add/Edit/Remove/Reveal actions prompt for the passphrase.
 
 ## Keyboard Shortcuts
 
 - `a`: Add credential
+- `e`: Edit selected credential
 - `delete`: Remove selected credential
 - `p`: Reveal selected password
 - `r`: Refresh vault view

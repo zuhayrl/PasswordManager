@@ -69,18 +69,35 @@ class PromptScreen(ModalScreen[Optional[str]]):
 
 
 class CredentialFormScreen(ModalScreen[Optional[tuple[str, str, str]]]):
-	"""Modal form for adding a credential."""
+	"""Modal form for adding or editing a credential."""
+
+	def __init__(
+		self,
+		title: str = "Add Credential",
+		description: str = "Create a new entry or update an existing one.",
+		submit_label: str = "Save",
+		service_value: str = "",
+		username_value: str = "",
+		password_value: str = "",
+	) -> None:
+		super().__init__()
+		self.title = title
+		self.description = description
+		self.submit_label = submit_label
+		self.service_value = service_value
+		self.username_value = username_value
+		self.password_value = password_value
 
 	def compose(self) -> ComposeResult:
 		yield Container(
-			Static("Add Credential", classes="dialog-title"),
-			Static("Create a new entry or update an existing one.", classes="dialog-prompt"),
-			Input(id="service", placeholder="Service name"),
-			Input(id="username", placeholder="Username"),
-			Input(id="password", placeholder="Password", password=True),
+			Static(self.title, classes="dialog-title"),
+			Static(self.description, classes="dialog-prompt"),
+			Input(id="service", placeholder="Service name", value=self.service_value),
+			Input(id="username", placeholder="Username", value=self.username_value),
+			Input(id="password", placeholder="Password", password=True, value=self.password_value),
 			Horizontal(
 				Button("Cancel", id="cancel", variant="default"),
-				Button("Save", id="save", variant="primary"),
+				Button(self.submit_label, id="save", variant="primary"),
 				classes="dialog-actions",
 			),
 			id="dialog-card",
@@ -239,6 +256,7 @@ class PasswordManagerApp(App):
 
 	BINDINGS = [
 		("a", "add_credential", "Add"),
+		("e", "edit_credential", "Edit"),
 		("r", "refresh_vault", "Refresh"),
 		("p", "reveal_password", "Reveal"),
 		("delete", "remove_credential", "Remove"),
@@ -260,13 +278,15 @@ class PasswordManagerApp(App):
 					with Vertical(classes="toolbar"):
 						with Horizontal(classes="toolbar-row"):
 							yield Button("Add", id="add", variant="success")
-							yield Button("Remove", id="remove", variant="error")
+							yield Button("Edit", id="edit", variant="primary")
 						with Horizontal(classes="toolbar-row"):
+							yield Button("Remove", id="remove", variant="error")
 							yield Button("Reveal", id="reveal", variant="primary")
+						with Horizontal(classes="toolbar-row"):
 							yield Button("Refresh", id="refresh", variant="default")
 				with Vertical(id="right-pane"):
 					yield Static("Details", classes="panel-title")
-					yield Static("Select a credential to see its username.\nUse Reveal to enter the passphrase and show the password.", id="details")
+					yield Static("Select a credential to see its username.\nUse Edit to update values or Reveal to show the password.", id="details")
 		yield Footer()
 
 	async def on_mount(self) -> None:
@@ -349,6 +369,8 @@ class PasswordManagerApp(App):
 		button_id = event.button.id
 		if button_id == "add":
 			self.action_add_credential()
+		elif button_id == "edit":
+			self.action_edit_credential()
 		elif button_id == "remove":
 			self.action_remove_credential()
 		elif button_id == "reveal":
@@ -406,6 +428,65 @@ class PasswordManagerApp(App):
 		self.selected_service = service
 		self.refresh_vault_view()
 		self.notify(f"Saved credential for '{service}'.", severity="information")
+
+	def action_edit_credential(self) -> None:
+		self.run_worker(self._edit_credential_flow(), name="edit-credential", group="modal-flow", exclusive=True)
+
+	async def _edit_credential_flow(self) -> None:
+		if self.selected_service is None:
+			self.notify("Select a credential first.", severity="warning")
+			return
+
+		service_to_edit = self.selected_service
+		passphrase = await self.push_screen_wait(
+			PromptScreen(
+				"Authorize Edit",
+				f"Enter the vault passphrase to edit '{service_to_edit}'.",
+				submit_label="Continue",
+			)
+		)
+		if passphrase is None:
+			return
+
+		try:
+			vault = load_vault(passphrase, str(VAULT_PATH))
+			credential = get_credential(vault, service_to_edit)
+		except Exception:
+			self.notify("Incorrect passphrase or unreadable vault.", severity="error")
+			return
+
+		if credential is None:
+			self.notify("The selected credential was not found.", severity="warning")
+			return
+
+		form_result = await self.push_screen_wait(
+			CredentialFormScreen(
+				title="Edit Credential",
+				description="Update the selected credential and save changes.",
+				submit_label="Update",
+				service_value=credential["service"],
+				username_value=credential["username"],
+				password_value=credential["password"],
+			)
+		)
+		if form_result is None:
+			return
+
+		new_service, new_username, new_password = form_result
+		if new_service != service_to_edit:
+			for entry in list_credentials(vault):
+				if entry["service"] == new_service:
+					self.notify(f"A credential for '{new_service}' already exists.", severity="error")
+					return
+
+		if new_service != service_to_edit:
+			remove_credential(vault, service_to_edit)
+
+		add_credential(vault, new_service, new_username, new_password)
+		save_vault(vault, str(VAULT_PATH))
+		self.selected_service = new_service
+		self.refresh_vault_view()
+		self.notify(f"Updated credential for '{new_service}'.", severity="information")
 
 	def action_remove_credential(self) -> None:
 		self.run_worker(self._remove_credential_flow(), name="remove-credential", group="modal-flow", exclusive=True)
